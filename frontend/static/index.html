@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analyzer</title>
+    <meta name="description" content="A simple stock analyzer with live prices from Yahoo Finance and a next-day price forecast.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+</head>
+<body>
+    <div class="page">
+
+        <!-- Top bar -->
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-mark">S</span>
+                <span class="brand-name">Stock Analyzer</span>
+            </div>
+
+            <div class="search-wrapper">
+                <input type="text" id="ticker-search" placeholder="Search a company or ticker (e.g. Apple, AAPL)" autocomplete="off">
+                <button id="search-btn">Search</button>
+                <ul id="search-suggestions" class="search-suggestions hidden"></ul>
+            </div>
+
+            <div class="currency-wrapper">
+                <label for="currency-select">Currency:</label>
+                <select id="currency-select">
+                    <option value="NATIVE">Default (Native)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="INR">INR (₹)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="CAD">CAD (CA$)</option>
+                    <option value="AUD">AUD (A$)</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Popular stocks -->
+        <nav class="popular-row">
+            <span class="popular-label">Popular:</span>
+            <div id="popular-list" class="popular-list">
+                <span class="loading-text">Loading…</span>
+            </div>
+        </nav>
+
+        <main class="content">
+
+            <!-- Empty state -->
+            <div id="empty-state" class="empty-state">
+                <p>Search for a company above, or pick one of the popular stocks, to see its price and chart.</p>
+            </div>
+
+            <!-- Loaded stock view -->
+            <div id="stock-view" class="stock-view hidden">
+                <div class="dashboard-grid">
+                    <div class="left-col">
+                        <!-- Price header -->
+                        <section class="price-card">
+                            <div class="price-card-main">
+                                <div class="name-row">
+                                    <h1 id="stock-name">--</h1>
+                                    <span id="stock-symbol" class="symbol-tag">--</span>
+                                </div>
+                                <div class="price-row">
+                                    <span id="stock-price" class="price">--</span>
+                                    <span id="stock-change" class="change neutral">--</span>
+                                </div>
+                                <div class="updated-row">
+                                    <span id="live-status" class="live-dot"></span>
+                                    <span id="updated-text">Fetching live price…</span>
+                                </div>
+                            </div>
+                            <div id="loader" class="loader hidden">
+                                <div class="spinner"></div>
+                                <span>Loading data…</span>
+                            </div>
+                        </section>
+
+                        <!-- Basic stats -->
+                        <section class="stats-card">
+                            <div class="stat">
+                                <span class="stat-label">Open</span>
+                                <span id="stat-open" class="stat-value">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Previous close</span>
+                                <span id="stat-prev-close" class="stat-value">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Day high</span>
+                                <span id="stat-high" class="stat-value">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Day low</span>
+                                <span id="stat-low" class="stat-value">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Volume</span>
+                                <span id="stat-volume" class="stat-value">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Market cap</span>
+                                <span id="stat-market-cap" class="stat-value">--</span>
+                            </div>
+                        </section>
+
+                        <!-- Forecast -->
+                        <section class="forecast-card">
+                            <h2>Next-day forecast</h2>
+                            <p class="forecast-note">A simple estimate from a machine-learning model trained on this stock's own price history. This is not financial advice.</p>
+                            <div class="forecast-grid">
+                                <div class="forecast-item">
+                                    <span class="forecast-label">Estimated close, <span id="forecast-date">--</span></span>
+                                    <span id="forecast-price" class="forecast-value">--</span>
+                                </div>
+                                <div class="forecast-item">
+                                    <span class="forecast-label">Direction</span>
+                                    <span id="forecast-direction" class="forecast-badge neutral">--</span>
+                                </div>
+                                <div class="forecast-item">
+                                    <span class="forecast-label">Model's historical directional accuracy</span>
+                                    <span id="forecast-accuracy" class="forecast-value">--</span>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="right-col">
+                        <!-- Chart -->
+                        <section class="chart-card">
+                            <div class="chart-card-header">
+                                <h2>Price history</h2>
+                                <div class="period-buttons">
+                                    <button class="period-btn" data-period="6mo">6M</button>
+                                    <button class="period-btn active" data-period="1y">1Y</button>
+                                    <button class="period-btn" data-period="2y">2Y</button>
+                                    <button class="period-btn" data-period="5y">5Y</button>
+                                </div>
+                            </div>
+                            <div id="price-chart" class="chart-container"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error state -->
+            <div id="error-state" class="error-state hidden">
+                <p id="error-text">Something went wrong.</p>
+            </div>
+
+        </main>
+
+        <footer class="footer">
+            <p>Prices and history are fetched live from Yahoo Finance via yfinance. Data may be delayed.</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
