@@ -1,4 +1,4 @@
-# Stock Analysis - Stock Market Analyzer Web Application
+# Stock Analyser - Stock Market Analyzer Web Application
 
 An advanced stock analytics dashboard featuring live-mocked prices via WebSockets, automated machine learning price predictions ($t+1$), and key performance indicators. The backend is built using FastAPI and Scikit-Learn, while the frontend is constructed with high-fidelity glassmorphism Vanilla CSS and responsive Plotly.js charts.
 
