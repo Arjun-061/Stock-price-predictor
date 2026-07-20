@@ -304,34 +304,58 @@ function renderChart(data, rate = 1.0, targetCurrency) {
     Plotly.newPlot("price-chart", traces, layout, { displayModeBar: false, responsive: true });
 }
 
+function fmtForecastDate(dateStr) {
+    try {
+        const d = new Date(dateStr + "T00:00:00");
+        return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    } catch (e) {
+        return dateStr;
+    }
+}
+
 function renderForecast(data, rate = 1.0, targetCurrency) {
     const metrics = data.metrics || {};
-    const lastClose = data.history.length ? data.history[data.history.length - 1].close : null;
-    const predicted = data.next_prediction;
     const currency = targetCurrency || "USD";
-
-    el("forecast-date").textContent = data.future_date || "--";
-    el("forecast-price").textContent = fmtMoney(predicted * rate, currency);
-
-    const dirEl = el("forecast-direction");
-    if (lastClose != null && predicted != null) {
-        if (predicted > lastClose) {
-            dirEl.textContent = "Up";
-            dirEl.className = "forecast-badge up";
-        } else if (predicted < lastClose) {
-            dirEl.textContent = "Down";
-            dirEl.className = "forecast-badge down";
-        } else {
-            dirEl.textContent = "Flat";
-            dirEl.className = "forecast-badge neutral";
-        }
-    }
 
     if (metrics.directional_accuracy != null) {
         el("forecast-accuracy").textContent = metrics.directional_accuracy.toFixed(1) + "%";
     } else {
         el("forecast-accuracy").textContent = "--";
     }
+
+    const listEl = el("forecast-7day-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    const days = data.forecast_7day || [];
+    days.forEach((day) => {
+        const row = document.createElement("div");
+        row.className = "forecast-day-row";
+
+        const info = document.createElement("div");
+        info.className = "forecast-day-info";
+
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "forecast-day-date";
+        dateSpan.textContent = fmtForecastDate(day.date);
+
+        const priceSpan = document.createElement("span");
+        priceSpan.className = "forecast-day-price";
+        priceSpan.textContent = fmtMoney(day.predicted_close * rate, currency);
+
+        info.appendChild(dateSpan);
+        info.appendChild(priceSpan);
+
+        const changeSpan = document.createElement("span");
+        const pct = day.change_percent;
+        const sign = pct > 0 ? "+" : "";
+        changeSpan.textContent = `${sign}${pct.toFixed(2)}%`;
+        changeSpan.className = "forecast-day-change " + (pct > 0 ? "positive" : pct < 0 ? "negative" : "neutral");
+
+        row.appendChild(info);
+        row.appendChild(changeSpan);
+        listEl.appendChild(row);
+    });
 }
 
 // ---------- Live quote polling (real fetch from Yahoo Finance) ----------
@@ -373,7 +397,8 @@ function renderQuote(q, rate = 1.0, targetCurrency) {
     el("stat-market-cap").textContent = q.market_cap ? fmtCompact(q.market_cap * rate, currency) : "--";
 
     el("live-status").className = "live-dot on";
-    el("updated-text").textContent = `Live price as of ${q.timestamp}`;
+    const tzLabel = q.timezone || "IST";
+    el("updated-text").textContent = `Live price as of ${q.timestamp} ${tzLabel} (India)`;
 }
 
 function startQuotePolling(symbol) {

@@ -113,22 +113,15 @@
 
                         <!-- Forecast -->
                         <section class="forecast-card">
-                            <h2>Next-day forecast</h2>
-                            <p class="forecast-note">A simple estimate from a machine-learning model trained on this stock's own price history. This is not financial advice.</p>
+                            <h2>7-day forecast</h2>
+                            <p class="forecast-note">A recursive estimate from a machine-learning model trained on this stock's own price history: each day's forecast feeds into the next. Accuracy drops the further out it goes. This is not financial advice.</p>
                             <div class="forecast-grid">
-                                <div class="forecast-item">
-                                    <span class="forecast-label">Estimated close, <span id="forecast-date">--</span></span>
-                                    <span id="forecast-price" class="forecast-value">--</span>
-                                </div>
-                                <div class="forecast-item">
-                                    <span class="forecast-label">Direction</span>
-                                    <span id="forecast-direction" class="forecast-badge neutral">--</span>
-                                </div>
                                 <div class="forecast-item">
                                     <span class="forecast-label">Model's historical directional accuracy</span>
                                     <span id="forecast-accuracy" class="forecast-value">--</span>
                                 </div>
                             </div>
+                            <div id="forecast-7day-list" class="forecast-7day-list"></div>
                         </section>
                     </div>
 

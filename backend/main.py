@@ -2,6 +2,7 @@ import os
 import logging
 import urllib.request
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import List, Dict
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -23,6 +24,10 @@ load_dotenv()
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 logger = logging.getLogger(__name__)
+
+# All "live" timestamps shown to the user are in Indian Standard Time (IST),
+# regardless of which server/timezone this process happens to run in.
+IST = ZoneInfo("Asia/Kolkata")
 
 # CORS: comma-separated list of allowed origins, e.g. "https://myapp.com,https://staging.myapp.com"
 _cors_env = os.getenv("CORS_ALLOW_ORIGINS", "*")
@@ -179,7 +184,9 @@ def get_quote(symbol: str):
             "currency": currency,
             "change": change,
             "change_percent": change_pct,
-            "timestamp": datetime.now().strftime("%H:%M:%S")
+            "timestamp": datetime.now(IST).strftime("%d %b %Y, %I:%M:%S %p"),
+            "timestamp_iso": datetime.now(IST).isoformat(),
+            "timezone": "IST"
         }
     except Exception as e:
         logger.error(f"Error fetching live quote for {symbol}: {str(e)}")
@@ -207,6 +214,7 @@ def get_stock_history(symbol: str, period: str = "1y", interval: str = "1d"):
         engine = PredictiveEngine(model_type="gradient_boosting")
         metrics = engine.train_and_evaluate(df_indicators)
         next_pred = engine.predict_next(df_indicators)
+        forecast_7day = engine.predict_next_n_days(df, n_days=7)
 
         X, y, X_latest = engine.prepare_data(df_indicators)
         X_scaled = engine.scaler.transform(X)
@@ -256,6 +264,7 @@ def get_stock_history(symbol: str, period: str = "1y", interval: str = "1d"):
             "metrics": metrics,
             "next_prediction": next_pred,
             "future_date": future_date,
+            "forecast_7day": forecast_7day,
             "history": history_list
         }
     except Exception as e:

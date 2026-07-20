@@ -629,6 +629,52 @@ body {
     background: rgba(141, 79, 59, 0.05); 
 }
 
+.forecast-7day-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.forecast-day-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #fdfbfa;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(141, 79, 59, 0.06);
+    gap: 10px;
+}
+
+.forecast-day-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.forecast-day-date {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.forecast-day-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.forecast-day-change {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.forecast-day-change.positive { color: var(--green); }
+.forecast-day-change.negative { color: var(--red); }
+.forecast-day-change.neutral { color: var(--text-muted); }
+
 /* Footer */
 .footer {
     text-align: center;

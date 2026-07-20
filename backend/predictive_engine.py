@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -124,3 +125,77 @@ class PredictiveEngine:
         
         prediction = self.model.predict(X_latest_scaled)[0]
         return float(prediction)
+
+    def predict_next_n_days(self, raw_df: pd.DataFrame, n_days: int = 7) -> list:
+        """
+        Recursively forecasts the Close price for the next `n_days` trading
+        days (weekends skipped, matching real market trading days).
+
+        Since the model's features (SMA/EMA/RSI/MACD/Bollinger Bands) are all
+        derived from the Close price history, each new day's forecast is fed
+        back in as a synthetic row so the next day's indicators - and
+        therefore its prediction - reflect the previous day's forecast. This
+        is a standard walk-forward / recursive multi-step forecasting
+        approach. Assumes the model is already trained (via
+        train_and_evaluate) and `raw_df` is the *un-indicator'd* OHLCV
+        DataFrame (Date, Open, High, Low, Close, Volume).
+
+        Note: because each step's error compounds into the next step's
+        input, uncertainty grows the further out the forecast goes - the
+        7th day is meaningfully less reliable than the 1st.
+        """
+        from .data_manager import DataManager  # local import avoids a circular import
+
+        working_df = raw_df.copy()
+
+        # yfinance returns tz-aware Dates (e.g. America/New_York). The
+        # synthetic rows appended below are naive datetimes, and pandas
+        # can't sort/compare a column that mixes tz-aware and tz-naive
+        # values ("can't compare offset-naive and offset-aware
+        # datetimes"). Normalize the whole column to tz-naive up front.
+        if 'Date' in working_df.columns and pd.api.types.is_datetime64_any_dtype(working_df['Date']):
+            if getattr(working_df['Date'].dt, 'tz', None) is not None:
+                working_df['Date'] = working_df['Date'].dt.tz_localize(None)
+
+        last_date = working_df.iloc[-1]['Date']
+        if isinstance(last_date, str):
+            current_date = datetime.strptime(last_date.split(' ')[0], "%Y-%m-%d")
+        else:
+            current_date = pd.Timestamp(last_date).to_pydatetime().replace(tzinfo=None)
+
+        last_actual_close = float(working_df.iloc[-1]['Close'])
+        forecasts = []
+        running_close = last_actual_close
+
+        for _ in range(n_days):
+            df_ind = DataManager.compute_technical_indicators(working_df)
+            _, _, X_latest = self.prepare_data(df_ind)
+            X_latest_scaled = self.scaler.transform(X_latest)
+            pred_close = float(self.model.predict(X_latest_scaled)[0])
+
+            # Advance to the next trading day (Mon-Fri only)
+            current_date += timedelta(days=1)
+            while current_date.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+                current_date += timedelta(days=1)
+
+            change_pct = ((pred_close - running_close) / running_close * 100.0) if running_close else 0.0
+            forecasts.append({
+                "date": current_date.strftime("%Y-%m-%d"),
+                "predicted_close": pred_close,
+                "change_percent": change_pct
+            })
+            running_close = pred_close
+
+            # Append a synthetic row so the next iteration's rolling
+            # indicators (SMA/EMA/RSI/etc.) account for this prediction.
+            # Volume is carried forward from the last known day as a
+            # reasonable placeholder since it isn't being forecast.
+            last_row = working_df.iloc[-1].copy()
+            last_row['Date'] = current_date
+            last_row['Open'] = pred_close
+            last_row['High'] = pred_close
+            last_row['Low'] = pred_close
+            last_row['Close'] = pred_close
+            working_df = pd.concat([working_df, last_row.to_frame().T], ignore_index=True)
+
+        return forecasts
