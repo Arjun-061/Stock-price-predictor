@@ -205,8 +205,10 @@ def get_stock_history(symbol: str, period: str = "1y", interval: str = "1d"):
         try:
             ticker_info = yf.Ticker(symbol).info
             company_name = ticker_info.get('longName') or ticker_info.get('shortName') or symbol
+            currency = ticker_info.get('currency') or 'USD'
         except Exception:
             company_name = symbol
+            currency = 'USD'
 
         df = DataManager.fetch_stock_data(symbol, period=period, interval=interval)
         df_indicators = DataManager.compute_technical_indicators(df)
@@ -261,6 +263,7 @@ def get_stock_history(symbol: str, period: str = "1y", interval: str = "1d"):
         return {
             "symbol": symbol,
             "name": company_name,
+            "currency": currency,
             "metrics": metrics,
             "next_prediction": next_pred,
             "future_date": future_date,

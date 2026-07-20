@@ -17,6 +17,7 @@ let rawQuote = null;
 let rawHistoryData = null;
 
 const el = (id) => document.getElementById(id);
+const setText = (id, value) => { const node = el(id); if (node) node.textContent = value; };
 
 function fmtMoney(value, currencyCode) {
     if (value === null || value === undefined || isNaN(value)) return "--";
@@ -161,7 +162,7 @@ async function loadStock(symbol) {
     el("stock-view").classList.remove("hidden");
     el("loader").classList.remove("hidden");
 
-    el("stock-symbol").textContent = currentSymbol;
+    setText("stock-symbol", currentSymbol);
 
     // Reset cached data
     rawQuote = null;
@@ -181,6 +182,15 @@ async function loadHistory(symbol) {
             throw new Error(err.detail || `Could not load history for ${symbol}`);
         }
         rawHistoryData = await res.json();
+        if (rawHistoryData.currency && !rawQuote) {
+            // Best-effort currency guess until/unless the live quote (more
+            // authoritative) succeeds and overrides this.
+            nativeCurrency = rawHistoryData.currency;
+            const select = el("currency-select");
+            if (select && select.options[0]) {
+                select.options[0].textContent = `Default (Native: ${nativeCurrency})`;
+            }
+        }
         renderStockHeader(rawHistoryData);
         await updateDisplay();
     } catch (e) {
@@ -189,23 +199,30 @@ async function loadHistory(symbol) {
 }
 
 function renderStockHeader(data) {
-    el("stock-name").textContent = data.name || data.symbol;
-    el("stock-symbol").textContent = data.symbol;
+    setText("stock-name", data.name || data.symbol);
+    setText("stock-symbol", data.symbol);
 }
 
 async function updateDisplay() {
-    if (!rawQuote || !rawHistoryData) return;
+    if (!rawHistoryData) return;
 
     const targetCurrency = displayCurrency === "NATIVE" ? nativeCurrency : displayCurrency;
-    
+
     let rate = 1.0;
     if (targetCurrency !== nativeCurrency) {
         rate = await getExchangeRate(nativeCurrency, targetCurrency);
     }
 
-    renderQuote(rawQuote, rate, targetCurrency);
+    // Chart and forecast only depend on history data, so render them as
+    // soon as history is available - don't block on the live quote, which
+    // can legitimately fail for some symbols (e.g. mutual funds, where
+    // Yahoo's fast_info endpoint has no real-time price).
     renderChart(rawHistoryData, rate, targetCurrency);
     renderForecast(rawHistoryData, rate, targetCurrency);
+
+    if (rawQuote) {
+        renderQuote(rawQuote, rate, targetCurrency);
+    }
 }
 
 async function getExchangeRate(base, target) {
@@ -318,9 +335,9 @@ function renderForecast(data, rate = 1.0, targetCurrency) {
     const currency = targetCurrency || "USD";
 
     if (metrics.directional_accuracy != null) {
-        el("forecast-accuracy").textContent = metrics.directional_accuracy.toFixed(1) + "%";
+        setText("forecast-accuracy", metrics.directional_accuracy.toFixed(1) + "%");
     } else {
-        el("forecast-accuracy").textContent = "--";
+        setText("forecast-accuracy", "--");
     }
 
     const listEl = el("forecast-7day-list");
@@ -374,31 +391,35 @@ async function fetchQuoteOnce(symbol) {
         
         await updateDisplay();
     } catch (e) {
-        el("live-status").className = "live-dot off";
-        el("updated-text").textContent = "Live price unavailable right now";
+        const liveStatus = el("live-status");
+        if (liveStatus) liveStatus.className = "live-dot off";
+        setText("updated-text", "Live price unavailable right now");
     }
 }
 
 function renderQuote(q, rate = 1.0, targetCurrency) {
     const currency = targetCurrency || q.currency || "USD";
-    el("stock-price").textContent = fmtMoney(q.price * rate, currency);
+    setText("stock-price", fmtMoney(q.price * rate, currency));
 
     const changeEl = el("stock-change");
     const convertedChange = q.change * rate;
     const sign = q.change > 0 ? "+" : "";
-    changeEl.textContent = `${sign}${convertedChange.toFixed(2)} (${sign}${q.change_percent.toFixed(2)}%)`;
-    changeEl.className = "change " + (q.change > 0 ? "positive" : q.change < 0 ? "negative" : "neutral");
+    if (changeEl) {
+        changeEl.textContent = `${sign}${convertedChange.toFixed(2)} (${sign}${q.change_percent.toFixed(2)}%)`;
+        changeEl.className = "change " + (q.change > 0 ? "positive" : q.change < 0 ? "negative" : "neutral");
+    }
 
-    el("stat-open").textContent = fmtMoney(q.open * rate, currency);
-    el("stat-prev-close").textContent = fmtMoney(q.previous_close * rate, currency);
-    el("stat-high").textContent = fmtMoney(q.day_high * rate, currency);
-    el("stat-low").textContent = fmtMoney(q.day_low * rate, currency);
-    el("stat-volume").textContent = fmtNumber(q.volume);
-    el("stat-market-cap").textContent = q.market_cap ? fmtCompact(q.market_cap * rate, currency) : "--";
+    setText("stat-open", fmtMoney(q.open * rate, currency));
+    setText("stat-prev-close", fmtMoney(q.previous_close * rate, currency));
+    setText("stat-high", fmtMoney(q.day_high * rate, currency));
+    setText("stat-low", fmtMoney(q.day_low * rate, currency));
+    setText("stat-volume", fmtNumber(q.volume));
+    setText("stat-market-cap", q.market_cap ? fmtCompact(q.market_cap * rate, currency) : "--");
 
-    el("live-status").className = "live-dot on";
+    const liveStatus = el("live-status");
+    if (liveStatus) liveStatus.className = "live-dot on";
     const tzLabel = q.timezone || "IST";
-    el("updated-text").textContent = `Live price as of ${q.timestamp} ${tzLabel} (India)`;
+    setText("updated-text", `Live price as of ${q.timestamp} ${tzLabel} (India)`);
 }
 
 function startQuotePolling(symbol) {
@@ -418,7 +439,7 @@ function stopQuotePolling() {
 function showError(message) {
     el("stock-view").classList.add("hidden");
     el("error-state").classList.remove("hidden");
-    el("error-text").textContent = message;
+    setText("error-text", message);
 }
 
 function setupCurrencySelector() {
